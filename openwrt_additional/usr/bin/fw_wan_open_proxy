@@ -1,0 +1,11 @@
+#!/bin/sh
+
+uci -q delete firewall.proxy
+uci set firewall.proxy="rule"
+uci set firewall.proxy.name="Allow-Proxy"
+uci set firewall.proxy.src="wan"
+uci set firewall.proxy.dest_port="1080"
+uci set firewall.proxy.proto="tcp"
+uci set firewall.proxy.target="ACCEPT"
+uci commit firewall
+/etc/init.d/firewall restart
