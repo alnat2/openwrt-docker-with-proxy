@@ -165,8 +165,8 @@ RUN echo "Building for platform '$TARGETPLATFORM'" \
     && until ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new root@localhost -p $SSH_PORT "cat /etc/banner"; do echo "Waiting for OpenWrt boot ..."; sleep 1; done \
     # Update package repo. Some some reasons it can fail. So try it until we are successfull. \
     && until ssh root@localhost -p $SSH_PORT "${PACKAGE_UPDATE}"; do echo "Retrying ${PACKAGE_UPDATE} ..."; sleep 1; done\
-    # Download Luci, qemu guest agent and mDNS support \
-    && ssh root@localhost -p $SSH_PORT "${PACKAGE_INSTALL} qemu-ga luci luci-ssl umdns losetup ${PACKAGE_EXTRA}" \
+    # Download Luci, qemu guest agent, nano, mickrosocks and mDNS support \
+    && ssh root@localhost -p $SSH_PORT "${PACKAGE_INSTALL} qemu-ga luci luci-ssl umdns losetup nano microsocks ${PACKAGE_EXTRA}" \
     # Download USB, PCI and PCIe support \
     && ssh root@localhost -p $SSH_PORT "${PACKAGE_INSTALL} usbutils pciutils" \
     # Download Wi-Fi access point support and Wi-Fi USB devices support \
@@ -187,6 +187,7 @@ RUN echo "Building for platform '$TARGETPLATFORM'" \
     && ssh root@localhost -p $SSH_PORT "${PACKAGE_INSTALL}  openssh-sftp-server" \
     && chmod +x /var/vm/openwrt_additional/usr/bin/* \
     && scp -P $SSH_PORT /var/vm/openwrt_additional/usr/bin/* root@localhost:/usr/bin \
+    && scp -P $SSH_PORT /var/vm/openwrt_additional/etc/config/microsocks/* root@localhost:/etc/config \
     && ssh root@localhost -p $SSH_PORT "${PACKAGE_REMOVE} openssh-sftp-server" \
     \
     # Sync changes into image and shutdown qemu \
