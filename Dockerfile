@@ -187,7 +187,7 @@ RUN echo "Building for platform '$TARGETPLATFORM'" \
     && ssh root@localhost -p $SSH_PORT "${PACKAGE_INSTALL}  openssh-sftp-server" \
     && chmod +x /var/vm/openwrt_additional/usr/bin/* \
     && scp -P $SSH_PORT /var/vm/openwrt_additional/usr/bin/* root@localhost:/usr/bin \
-    && scp -P $SSH_PORT /var/vm/openwrt_additional/etc/config/microsocks/* root@localhost:/etc/config \
+    && scp -P $SSH_PORT /var/vm/openwrt_additional/microsocks root@localhost:/etc/config \
     && ssh root@localhost -p $SSH_PORT "${PACKAGE_REMOVE} openssh-sftp-server" \
     \
     # Sync changes into image and shutdown qemu \
