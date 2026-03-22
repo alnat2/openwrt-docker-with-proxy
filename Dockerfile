@@ -51,7 +51,7 @@ RUN npm run build -- "--base-href='./'"
 ########################################################################################################################
 FROM alpine:latest
 
-ARG OPENWRT_VERSION="24.10.2"
+ARG OPENWRT_VERSION="25.12.1"
 ARG TARGETPLATFORM
 ARG OPENWRT_ROOTFS_IMG
 ARG OPENWRT_KERNEL
@@ -123,6 +123,25 @@ RUN echo "Building for platform '$TARGETPLATFORM'" \
     && wget $OPENWRT_IMAGE -O /var/vm/squashfs-combined-${OPENWRT_VERSION}.img.gz \
     && gzip -d /var/vm/squashfs-combined-${OPENWRT_VERSION}.img.gz \
     \
+    # 4k align the OpenWrt image so qemu doesn't complain about resize errors \
+    # Get current size in bytes \
+    && size=$(stat -c%s "/var/vm/squashfs-combined-${OPENWRT_VERSION}.img") \
+    # ceil to MB \
+    && size_mb=$(( (size + 1024*1024 - 1) / (1024*1024) ))  \
+    && echo "Current size: ${size_mb} MiB " \
+    # Decide target size \
+    && if [ "$size_mb" -le 128 ]; then \
+        target_mb=128; \
+    elif [ "$size_mb" -le 256 ]; then \
+        target_mb=256; \
+    elif [ "$size_mb" -le 512 ]; then \
+        target_mb=512; \
+    elif [ "$size_mb" -le 1024 ]; then \
+        target_mb=1024; \
+    fi \
+    && echo "Extending /var/vm/squashfs-combined-${OPENWRT_VERSION}.img to ${target_mb} MiB..." \
+    && dd if=/dev/zero of="/var/vm/squashfs-combined-${OPENWRT_VERSION}.img" seek="${target_mb}" obs=1M count=0 \
+    \
     # Each CPU architecture needs a different SSH port to make a possible to make a parallel build \
     && SSH_PORT=1022 \
     \
@@ -148,18 +167,11 @@ RUN echo "Building for platform '$TARGETPLATFORM'" \
     fi \
     && echo "QEMU started with PID $QEMU_PID" \
     \
-    # OpenWrt master uses apk insted of opkg \
-    && if [ "$OPENWRT_VERSION" = "master" ]; then \
-        PACKAGE_UPDATE="apk update"; \
-        PACKAGE_INSTALL="apk add"; \
-        PACKAGE_REMOVE="apk del"; \
-        PACKAGE_EXTRA="libudev-zero"; \
-    else \
-        PACKAGE_UPDATE="opkg update"; \
-        PACKAGE_INSTALL="opkg install"; \
-        PACKAGE_REMOVE="opkg remove"; \
-        PACKAGE_EXTRA=""; \
-    fi \
+    # OpenWrt uses apk now \
+    && PACKAGE_UPDATE="apk update" \
+    && PACKAGE_INSTALL="apk add" \
+    && PACKAGE_REMOVE="apk del" \
+    && PACKAGE_EXTRA="libudev-zero" \
     \
     # Wait for OpenWrt startup and update repo \
     && until ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new root@localhost -p $SSH_PORT "cat /etc/banner"; do echo "Waiting for OpenWrt boot ..."; sleep 1; done \
@@ -191,7 +203,7 @@ RUN echo "Building for platform '$TARGETPLATFORM'" \
     && ssh root@localhost -p $SSH_PORT "${PACKAGE_REMOVE} openssh-sftp-server" \
     \
     # Sync changes into image and shutdown qemu \
-    && ssh root@localhost -p $SSH_PORT 'sync; halt' \
+    && ssh root@localhost -p $SSH_PORT 'sync; poweroff' \
     && while kill -0 $QEMU_PID 2>/dev/null; do echo "Waiting for qemu exit ..."; sleep 1; done \
     \
     && gzip /var/vm/squashfs-combined-${OPENWRT_VERSION}.img \

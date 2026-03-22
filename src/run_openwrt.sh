@@ -105,35 +105,8 @@ attach_veth_if () {
   if [[ -n "${IS_U_OS_APP}" ]]; then
     info "Detected u-OS app"
 
- #   # Check if u-OS webserver is already configured
- #   if  ! nsenter --target 1 --uts --net --ipc --mount grep -q "app-openwrt0" "/usr/lib/uc-http-server/ucu.yml" ; then
- #     info "Adding app-openwrt0 to /usr/lib/uc-http-server/ucu.yml ..."
- #     nsenter --target 1 --uts --net --ipc --mount mount -o remount,rw /
- #     nsenter --target 1 --uts --net --ipc --mount sed -i "s/, 'usb-x1'/, 'usb-x1', 'app-openwrt0'/g" /usr/lib/uc-http-server/ucu.yml
- #     nsenter --target 1 --uts --net --ipc --mount mount -o remount,ro /
- #   fi
-
-    if ! nsenter --target 1 --uts --net --ipc --mount sh -c "test -f /var/lib/systemd/network/app-openwrt0.network"; then
-      info "Creating /var/lib/systemd/network/app-openwrt0.network ..."
-      nsenter --target 1 --uts --net --ipc --mount sh -c "echo '[Match]' > /var/lib/systemd/network/app-openwrt0.network"
-      nsenter --target 1 --uts --net --ipc --mount sh -c "echo 'Name=app-openwrt0' >> /var/lib/systemd/network/app-openwrt0.network"
-      nsenter --target 1 --uts --net --ipc --mount sh -c "echo '[Network]' >> /var/lib/systemd/network/app-openwrt0.network"
-      nsenter --target 1 --uts --net --ipc --mount sh -c "echo 'DHCP=yes' >> /var/lib/systemd/network/app-openwrt0.network"
-      nsenter --target 1 --uts --net --ipc --mount mount -o remount,rw /
-      nsenter --target 1 --uts --net --ipc --mount cp /var/lib/systemd/network/app-openwrt0.network /usr/lib/systemd/network/app-openwrt0.network
-      nsenter --target 1 --uts --net --ipc --mount mount -o remount,ro /
-    fi
-
-    if nsenter --target 1 --uts --net --ipc --mount ip link show app-openwrt0  &> /dev/null; then
-      info "Deleting previous app-openwrt0 Ethernet device ..."
-      nsenter --target 1 --uts --net --ipc --mount ip link del app-openwrt0
-    fi
-
-    info "Adding a bridge app-openwrt0 as workaround because uc-http-server cannot handle veths peer_ifindex "@ifXX" e.g. veth-openwrt0@if32"
-    nsenter --target 1 --uts --net --ipc --mount ip link add name app-openwrt0 type bridge
-    nsenter --target 1 --uts --net --ipc --mount ip link set dev app-openwrt0 up
-    nsenter --target 1 --uts --net --ipc --mount ip link set veth-openwrt0 master app-openwrt0
-#    nsenter --target 1 --uts --net --ipc --mount systemctl restart uc-http-server
+    nsenter --target 1 --uts --net --ipc --mount nmcli con mod env-openwrt0 ipv4.addresses "172.31.1.2/24"
+    nsenter --target 1 --uts --net --ipc --mount nmcli con up env-openwrt0
   fi
 }
 
@@ -203,7 +176,7 @@ LAN_IF_OPTION=$(echo $LAN_IF | cut -d',' -f2)
 if [[ -z "${LAN_IF_NAME}" || $LAN_IF_NAME = "host" ]]; then
   LAN_ARGS="-device virtio-net,netdev=qlan0 -netdev user,id=qlan0,net=192.168.1.0/24"
 elif [[ $LAN_IF_NAME = "veth" ]]; then
-  attach_veth_if veth-openwrt0 veth1 qlan1 $LAN_IF_OPTION
+  attach_veth_if env-openwrt0 veth1 qlan1 $LAN_IF_OPTION
   exec 30<>/dev/tap$(cat /sys/class/net/qlan1/ifindex)
   LAN_ARGS="-device virtio-net-pci,netdev=hostnet0,mac=$(cat /sys/class/net/qlan1/address) \
     -netdev tap,fd=30,id=hostnet0"
